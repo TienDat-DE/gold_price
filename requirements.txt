@@ -1,0 +1,29 @@
+# ==========================================
+# 1. CORE ORCHESTRATION (Điều phối luồng)
+# ==========================================
+apache-airflow==2.9.0
+
+# ==========================================
+# 2. CRAWLER & SCRAPING (Thu thập dữ liệu)
+# ==========================================
+requests>=2.31.0
+beautifulsoup4>=4.12.0
+tls-client>=1.0.1      # Bắt buộc để bypass Cloudflare/TLS khi cào API BTMC
+
+# ==========================================
+# 3. DATA PROCESSING (Xử lý & Staging)
+# ==========================================
+pandas>=2.0.0
+pyarrow>=14.0.0        # Bắt buộc để Pandas đọc/ghi được định dạng file .parquet
+
+# ==========================================
+# 4. DATABASE & STORAGE (Kết nối MySQL)
+# ==========================================
+mysql-connector-python>=8.0.33
+SQLAlchemy>=1.4.36,<2.0.0      # Đã hạ phiên bản để tương thích với Airflow 2.9.0
+PyMySQL>=1.1.0
+
+# ==========================================
+# 5. UTILS & SECURITY (Tiện ích)
+# ==========================================
+python-dotenv>=1.0.0   # Dùng để giấu mật khẩu DB vào file .env, không code cứng mật khẩu
