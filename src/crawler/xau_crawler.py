@@ -6,7 +6,6 @@ from src.core.utils import retry_request
 class XAUCrawler(BaseCrawler):
     def __init__(self, run_id: str, logical_date: str):
         super().__init__(job_name="XAU_CRAWLER", run_id=run_id, logical_date=logical_date)
-        # Sử dụng endpoint miễn phí và ổn định nhất từ code cũ của bạn
         self.url = "https://api.gold-api.com/price/XAU"
 
     @retry_request(max_retries=3, delay=5)

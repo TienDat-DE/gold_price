@@ -11,12 +11,12 @@ default_args = {
     'retry_delay': timedelta(minutes=5),
 }
 
-# Khởi tạo DAG chạy hàng ngày vào lúc 18:15 (chạy sau Domestic 15 phút)
+# Khởi tạo DAG chạy hàng ngày vào lúc 10:15 (chạy sau Domestic 15 phút)
 with DAG(
     dag_id='global_gold_pipeline',
     default_args=default_args,
     description='ETL Pipeline cho Giá vàng XAU và Tỷ giá USD/VND',
-    schedule_interval='15 18 * * *',
+    schedule_interval='15 10 * * *',
     start_date=datetime(2026, 11, 1),
     catchup=False,
     tags=['global', 'xau', 'usd', 'elt'],
@@ -29,8 +29,8 @@ with DAG(
         task_id='crawl_xau',
         bash_command="""
         python -c "
-from src.crawler.xau_crawler import XAUCrawler
-XAUCrawler(run_id='{{ run_id }}', logical_date='{{ ds }}').run(step_name='CRAWL_XAU')
+                from src.crawler.xau_crawler import XAUCrawler
+                XAUCrawler(run_id='{{ run_id }}', logical_date='{{ ds }}').run(step_name='CRAWL_XAU')
         "
         """
     )
@@ -39,8 +39,8 @@ XAUCrawler(run_id='{{ run_id }}', logical_date='{{ ds }}').run(step_name='CRAWL_
         task_id='stage_xau',
         bash_command="""
         python -c "
-from src.staging.xau_staging import XAUStaging
-XAUStaging(run_id='{{ run_id }}', logical_date='{{ ds }}').run(step_name='STAGE_XAU')
+                from src.staging.xau_staging import XAUStaging
+                XAUStaging(run_id='{{ run_id }}', logical_date='{{ ds }}').run(step_name='STAGE_XAU')
         "
         """
     )
@@ -52,8 +52,8 @@ XAUStaging(run_id='{{ run_id }}', logical_date='{{ ds }}').run(step_name='STAGE_
         task_id='crawl_usd',
         bash_command="""
         python -c "
-from src.crawler.vcb_crawler import VCBCrawler
-VCBCrawler(run_id='{{ run_id }}', logical_date='{{ ds }}').run(step_name='CRAWL_USD')
+                from src.crawler.vcb_crawler import VCBCrawler
+                VCBCrawler(run_id='{{ run_id }}', logical_date='{{ ds }}').run(step_name='CRAWL_USD')
         "
         """
     )
@@ -62,8 +62,8 @@ VCBCrawler(run_id='{{ run_id }}', logical_date='{{ ds }}').run(step_name='CRAWL_
         task_id='stage_usd',
         bash_command="""
         python -c "
-from src.staging.vcb_staging import VCBStaging
-VCBStaging(run_id='{{ run_id }}', logical_date='{{ ds }}').run(step_name='STAGE_USD')
+                from src.staging.vcb_staging import VCBStaging
+                VCBStaging(run_id='{{ run_id }}', logical_date='{{ ds }}').run(step_name='STAGE_USD')
         "
         """
     )
@@ -75,8 +75,8 @@ VCBStaging(run_id='{{ run_id }}', logical_date='{{ ds }}').run(step_name='STAGE_
         task_id='convert_global_gold',
         bash_command="""
         python -c "
-from src.clean.global_converter import GlobalConverter
-GlobalConverter(run_id='{{ run_id }}', logical_date='{{ ds }}').run(step_name='CONVERT_GLOBAL')
+                from src.clean.global_converter import GlobalConverter
+                GlobalConverter(run_id='{{ run_id }}', logical_date='{{ ds }}').run(step_name='CONVERT_GLOBAL')
         "
         """
     )
@@ -84,9 +84,7 @@ GlobalConverter(run_id='{{ run_id }}', logical_date='{{ ds }}').run(step_name='C
     # ==========================================
     # THIẾT LẬP CHUỖI PHỤ THUỘC (DEPENDENCIES)
     # ==========================================
-    # Luồng XAU và USD chạy hoàn toàn độc lập và song song (Sub-task 11.1)
     crawl_xau >> stage_xau
     crawl_usd >> stage_usd
 
-    # Hội tụ: Task Convert chỉ chạy khi CẢ 2 nhánh XAU và USD đã staging thành công (Sub-task 11.2)
     [stage_xau, stage_usd] >> convert_global

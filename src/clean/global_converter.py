@@ -33,7 +33,7 @@ class GlobalConverter(BaseJob):
         xau_usd = float(result['xau_price'])
         usd_vnd = float(result['usd_rate'])
 
-        # Sub-task 9.2: Thuật toán quy đổi theo chuẩn Business Logic của bạn
+        # Sub-task 9.2: Thuật toán quy đổi theo chuẩn Business Logic
         # Công thức: (XAU + 1) * 1.01 * 1.20565 * Tỷ Giá + 150000 (Thuế phí gia công)
         converted_price = (xau_usd + 1) * 1.01 * 1.20565 * usd_vnd + 150000
         final_price = int(converted_price)
