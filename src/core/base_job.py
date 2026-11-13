@@ -22,6 +22,7 @@ class BaseJob(ABC):
         self.logger = self._setup_logger()
         self._db = self._connect_db()
         self._cursor = self._db.cursor()
+        self._ensure_job_run()
 
     def _setup_logger(self):
         logging.basicConfig(
@@ -36,13 +37,45 @@ class BaseJob(ABC):
             conn = mysql.connector.connect(
                 host=os.getenv("DB_HOST", "localhost"),
                 user=os.getenv("DB_USER", "root"),
-                password=os.getenv("DB_PASSWORD", "123456"), # Sẽ lấy password thật từ .env
+                password=os.getenv("DB_PASSWORD", "123456"),
                 database=os.getenv("DB_NAME", "gold_dwh")
             )
             return conn
         except Exception as e:
             self.logger.error(f"Lỗi kết nối Database: {e}")
             raise
+
+    def _ensure_job_run(self):
+        """Đảm bảo run_id từ Airflow đã tồn tại ở bảng cha job_run trước khi ghi log"""
+        try:
+            self._cursor.execute("SHOW COLUMNS FROM job_run")
+            columns_info = self._cursor.fetchall()
+
+            known_defaults = {
+                "run_id": self._run_id,
+                "logical_date": self._logical_date,
+                "data_date": self._logical_date,
+                "status": "RUNNING",
+                "job_name": self._job_name,
+                "dag_id": self._job_name,
+            }
+
+            cols, vals = [], []
+            for col_name, _col_type, is_null, _key, default_val, extra in columns_info:
+                if "auto_increment" in (extra or ""):
+                    continue
+                if col_name in known_defaults or (is_null == "NO" and default_val is None):
+                    cols.append(col_name)
+                    vals.append(known_defaults.get(col_name, self._run_id))
+
+            if cols:
+                placeholders = ", ".join(["%s"] * len(cols))
+                col_list = ", ".join(cols)
+                sql = f"INSERT IGNORE INTO job_run ({col_list}) VALUES ({placeholders})"
+                self._cursor.execute(sql, tuple(vals))
+                self._db.commit()
+        except Exception as e:
+            self.logger.warning(f"Lưu ý khi khởi tạo job_run: {e}")
 
     # Sub-task 2.2: Xây dựng phương thức lưu vết (Insert vào pipeline_log và error_log)
     def _log_pipeline(self, step_name: str, status: str, message: str = ""):
@@ -86,27 +119,19 @@ class BaseJob(ABC):
         self._log_pipeline(step_name, "RUNNING", "Bắt đầu thực thi module...")
         
         try:
-            # Gọi logic nghiệp vụ (Crawl, Staging, Clean...)
             self.execute()
-            
-            # Nếu code chạy mượt mà đến đây, ghi log Success
             self._log_pipeline(step_name, "SUCCESS", "Hoàn thành module xuất sắc.")
             
         except Exception as e:
-            # Tự động tóm (capture) lỗi và Stack Trace
             error_message = str(e)
             stack_trace_str = traceback.format_exc()
             
-            # Ghi vào DB để sau này lên Dashboard soi lỗi
             self._log_pipeline(step_name, "FAILED", f"Lỗi: {error_message}")
             self._log_error(step_name, error_message, stack_trace_str)
             self.logger.error(f"===== HỆ THỐNG SẬP TẠI {step_name} =====\n{stack_trace_str}")
-            
-            # Ném lỗi ra ngoài để Airflow biết mà bôi ĐỎ task
             raise e
             
         finally:
-            # Luôn luôn đóng kết nối DB khi chạy xong để tránh tràn RAM/kẹt Session
             if self._db.is_connected():
                 self._cursor.close()
                 self._db.close()

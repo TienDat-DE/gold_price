@@ -1,121 +1,64 @@
-from src.core.base_cleaner import BaseCleaner
+from src.core.base_job import BaseJob
 
-class GoldCleaner(BaseCleaner):
+class GlobalConverter(BaseJob):
     def __init__(self, run_id: str, logical_date: str):
-        super().__init__(job_name="GOLD_CLEANER", run_id=run_id, logical_date=logical_date)
-        # Sử dụng dictionary để truy xuất tên cột dễ dàng
-        self._cursor = self._db.cursor(dictionary=True)
-
-    def _get_dim_mapping(self):
-        """Lấy Mapping ID từ Data Warehouse (Biến Mã Chữ thành Mã Số)"""
-        self._cursor.execute("SELECT store_code, store_id FROM dim_store")
-        store_map = {row['store_code']: row['store_id'] for row in self._cursor.fetchall()}
-        
-        self._cursor.execute("SELECT gold_type_code, gold_type_id FROM dim_gold_type")
-        type_map = {row['gold_type_code']: row['gold_type_id'] for row in self._cursor.fetchall()}
-        return store_map, type_map
-
-    def _get_latest_prices(self):
-        """Lấy giá mới nhất hiện có trong DWH để so sánh Anomaly và SCD2"""
-        sql = """
-            SELECT f.store_id, f.gold_type_id, f.buy_price, f.sell_price
-            FROM fact_gold_price f
-            INNER JOIN (
-                SELECT store_id, gold_type_id, MAX(recorded_at) as max_time
-                FROM fact_gold_price
-                GROUP BY store_id, gold_type_id
-            ) latest ON f.store_id = latest.store_id 
-                     AND f.gold_type_id = latest.gold_type_id 
-                     AND f.recorded_at = latest.max_time
-        """
-        self._cursor.execute(sql)
-        return {(row['store_id'], row['gold_type_id']): (row['buy_price'], row['sell_price']) for row in self._cursor.fetchall()}
-
-    def check_anomaly(self, staging_data):
-        """Thực thi kiểm tra biến động giá > 10%"""
-        store_map, type_map = self._get_dim_mapping()
-        latest_prices = self._get_latest_prices()
-        
-        valid_data = []
-        anomaly_inserts = []
-        
-        for row in staging_data:
-            store_id = store_map.get(row['store_code'])
-            type_id = type_map.get(row['gold_type'])
-            
-            if not store_id or not type_id:
-                continue
-                
-            new_buy, new_sell = row['buy_price'], row['sell_price']
-            latest = latest_prices.get((store_id, type_id))
-            
-            if latest:
-                old_buy, old_sell = latest
-                buy_diff = abs(new_buy - old_buy) / old_buy
-                sell_diff = abs(new_sell - old_sell) / old_sell
-                
-                if buy_diff > 0.1 or sell_diff > 0.1:
-                    reason = f"Biến động >10%: Mua lệch {buy_diff:.1%}, Bán lệch {sell_diff:.1%}"
-                    anomaly_inserts.append((self._run_id, row['store_code'], row['gold_type'], new_buy, new_sell, reason))
-                    self.logger.warning(f"Phát hiện Anomaly: {reason}")
-                    continue # Bỏ qua dòng lỗi này
-            
-            # Gắn thêm ID vào data hợp lệ để truyền sang bước sau
-            row['store_id'] = store_id
-            row['type_id'] = type_id
-            valid_data.append(row)
-            
-        if anomaly_inserts:
-            sql = "INSERT INTO anomaly_log (run_id, store_code, gold_type, buy_price, sell_price, anomaly_reason) VALUES (%s, %s, %s, %s, %s, %s)"
-            self._cursor.executemany(sql, anomaly_inserts)
-            self._db.commit()
-            
-        return valid_data
-
-    def generate_hash(self, staging_data):
-        """Staging đã tính sẵn Hash, ở đây chỉ trích xuất danh sách hash hiện tại[cite: 4]"""
-        return [row['price_hash'] for row in staging_data]
-
-    def load_scd2(self, valid_data, current_hash):
-        """So sánh giá cũ/mới và Insert dòng mới vào Fact thay vì đóng valid_to[cite: 4]"""
-        latest_prices = self._get_latest_prices()
-        fact_inserts = []
-        
-        for row in valid_data:
-            store_id, type_id = row['store_id'], row['type_id']
-            new_buy, new_sell = row['buy_price'], row['sell_price']
-            latest = latest_prices.get((store_id, type_id))
-            
-            # Nếu giá đã tồn tại và không thay đổi -> Bỏ qua
-            if latest and new_buy == latest[0] and new_sell == latest[1]:
-                self.logger.info(f"Giá {row['store_code']} - {row['gold_type']} KHÔNG ĐỔI. Bỏ qua.")
-                continue
-                
-            spread = new_sell - new_buy
-            date_key = int(row['logical_date'].strftime("%Y%m%d"))
-            fact_inserts.append((date_key, store_id, type_id, new_buy, new_sell, spread))
-            
-        if fact_inserts:
-            sql = "INSERT INTO fact_gold_price (date_key, store_id, gold_type_id, buy_price, sell_price, spread) VALUES (%s, %s, %s, %s, %s, %s)"
-            self._cursor.executemany(sql, fact_inserts)
-            self._db.commit()
-            self.logger.info(f"Đã Load thành công {len(fact_inserts)} dòng giá MỚI vào Data Warehouse.")
+        super().__init__(job_name="GLOBAL_CONVERTER", run_id=run_id, logical_date=logical_date)
+        if self._cursor:
+            self._cursor.close()
+        # Bật buffered=True để tránh lỗi "Unread result found" khi chạy nhiều query liên tiếp
+        self._cursor = self._db.cursor(dictionary=True, buffered=True)
 
     def execute(self):
-        """Khớp nối các bước của khâu Cleaner[cite: 4] - Ghi đè lại để truyền data xuyên suốt"""
-        self.logger.info("Đang đọc dữ liệu từ vùng Staging...[cite: 4]")
-        self._cursor.execute("SELECT * FROM staging_gold_price WHERE run_id = %s", (self._run_id,))
-        staging_data = self._cursor.fetchall()
+        self._cursor.execute("SELECT store_id FROM dim_store WHERE store_code = 'WORLD'")
+        store_row = self._cursor.fetchone()
         
-        if not staging_data:
-            self.logger.info("Không có dữ liệu Staging để xử lý.")
+        self._cursor.execute("SELECT gold_type_id FROM dim_gold_type WHERE gold_type_code = 'XAU_VND'")
+        type_row = self._cursor.fetchone()
+
+        if not store_row or not type_row:
+            self.logger.error("Thiếu dữ liệu WORLD hoặc XAU_VND trong bảng Dimension.")
             return
 
-        self.logger.info("Đang chạy kiểm tra Anomaly...[cite: 4]")
-        valid_data = self.check_anomaly(staging_data)
-        
-        self.logger.info("Đang mã hóa Hashing...[cite: 4]")
-        current_hash_list = self.generate_hash(valid_data)
-        
-        self.logger.info("Đang cập nhật lịch sử Fact...[cite: 4]")
-        self.load_scd2(valid_data, current_hash_list)
+        store_id = store_row['store_id']
+        type_id = type_row['gold_type_id']
+        date_key = int(self._logical_date.replace("-", ""))
+
+        # Sub-task 9.1: Truy vấn JOIN lấy XAU và USD theo cùng date_key
+        sql_join = """
+            SELECT x.price_usd as xau_price, e.buy_rate as usd_rate
+            FROM fact_xau_price x
+            JOIN fact_exchange_rate e ON x.date_key = e.date_key
+            WHERE x.date_key = %s
+            LIMIT 1
+        """
+        self._cursor.execute(sql_join, (date_key,))
+        result = self._cursor.fetchone()
+
+        if not result:
+            self.logger.warning(f"Bỏ qua: Không đủ dữ liệu XAU hoặc USD của ngày {date_key} để quy đổi.")
+            return
+
+        xau_usd = float(result['xau_price'])
+        usd_vnd = float(result['usd_rate'])
+
+        # Sub-task 9.2: Thuật toán quy đổi sang VNĐ/Lượng
+        converted_price = (xau_usd + 1) * 1.01 * 1.20565 * usd_vnd + 150000
+        final_price = int(converted_price)
+
+        self.logger.info(f"Quy đổi: {xau_usd} USD/oz * {usd_vnd} VNĐ -> {final_price} VNĐ/Lượng")
+
+        # Sub-task 9.3: Lưu kết quả vào Fact Gold Price (Idempotent)
+        sql_check = "SELECT fact_id FROM fact_gold_price WHERE date_key = %s AND store_id = %s AND gold_type_id = %s"
+        self._cursor.execute(sql_check, (date_key, store_id, type_id))
+        exists = self._cursor.fetchone()
+
+        if exists:
+            self.logger.info("Giá quy đổi của ngày hôm nay đã tồn tại trong Fact. Bỏ qua.")
+        else:
+            sql_insert = """
+                INSERT INTO fact_gold_price (date_key, store_id, gold_type_id, buy_price, sell_price, spread)
+                VALUES (%s, %s, %s, %s, %s, %s)
+            """
+            self._cursor.execute(sql_insert, (date_key, store_id, type_id, final_price, final_price, 0))
+            self._db.commit()
+            self.logger.info("Đã lưu thành công Giá Vàng Thế Giới vào DWH.")

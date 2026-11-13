@@ -2,6 +2,9 @@ from airflow import DAG
 from airflow.operators.bash import BashOperator
 from datetime import datetime, timedelta
 
+PROJECT_DIR = "/Users/tsdeveloper/Desktop/gold_price"
+PYTHON_BIN = f"{PROJECT_DIR}/venv/bin/python"
+
 default_args = {
     'owner': 'data_engineer',
     'depends_on_past': False,
@@ -27,20 +30,20 @@ with DAG(
     # ==========================================
     crawl_xau = BashOperator(
         task_id='crawl_xau',
-        bash_command="""
-        python -c "
-                from src.crawler.xau_crawler import XAUCrawler
-                XAUCrawler(run_id='{{ run_id }}', logical_date='{{ ds }}').run(step_name='CRAWL_XAU')
+        bash_command=f"""
+        cd {PROJECT_DIR} && PYTHONPATH={PROJECT_DIR} {PYTHON_BIN} -c "
+from src.crawler.xau_crawler import XAUCrawler
+XAUCrawler(run_id='{{{{ run_id }}}}', logical_date='{{{{ ds }}}}').run(step_name='CRAWL_XAU')
         "
         """
     )
 
     stage_xau = BashOperator(
         task_id='stage_xau',
-        bash_command="""
-        python -c "
-                from src.staging.xau_staging import XAUStaging
-                XAUStaging(run_id='{{ run_id }}', logical_date='{{ ds }}').run(step_name='STAGE_XAU')
+        bash_command=f"""
+        cd {PROJECT_DIR} && PYTHONPATH={PROJECT_DIR} {PYTHON_BIN} -c "
+from src.staging.xau_staging import XAUStaging
+XAUStaging(run_id='{{{{ run_id }}}}', logical_date='{{{{ ds }}}}').run(step_name='STAGE_XAU')
         "
         """
     )
@@ -50,20 +53,20 @@ with DAG(
     # ==========================================
     crawl_usd = BashOperator(
         task_id='crawl_usd',
-        bash_command="""
-        python -c "
-                from src.crawler.vcb_crawler import VCBCrawler
-                VCBCrawler(run_id='{{ run_id }}', logical_date='{{ ds }}').run(step_name='CRAWL_USD')
+        bash_command=f"""
+        cd {PROJECT_DIR} && PYTHONPATH={PROJECT_DIR} {PYTHON_BIN} -c "
+from src.crawler.vcb_crawler import VCBCrawler
+VCBCrawler(run_id='{{{{ run_id }}}}', logical_date='{{{{ ds }}}}').run(step_name='CRAWL_USD')
         "
         """
     )
 
     stage_usd = BashOperator(
         task_id='stage_usd',
-        bash_command="""
-        python -c "
-                from src.staging.vcb_staging import VCBStaging
-                VCBStaging(run_id='{{ run_id }}', logical_date='{{ ds }}').run(step_name='STAGE_USD')
+        bash_command=f"""
+        cd {PROJECT_DIR} && PYTHONPATH={PROJECT_DIR} {PYTHON_BIN} -c "
+from src.staging.vcb_staging import VCBStaging
+VCBStaging(run_id='{{{{ run_id }}}}', logical_date='{{{{ ds }}}}').run(step_name='STAGE_USD')
         "
         """
     )
@@ -73,10 +76,10 @@ with DAG(
     # ==========================================
     convert_global = BashOperator(
         task_id='convert_global_gold',
-        bash_command="""
-        python -c "
-                from src.clean.global_converter import GlobalConverter
-                GlobalConverter(run_id='{{ run_id }}', logical_date='{{ ds }}').run(step_name='CONVERT_GLOBAL')
+        bash_command=f"""
+        cd {PROJECT_DIR} && PYTHONPATH={PROJECT_DIR} {PYTHON_BIN} -c "
+from src.clean.global_converter import GlobalConverter
+GlobalConverter(run_id='{{{{ run_id }}}}', logical_date='{{{{ ds }}}}').run(step_name='CONVERT_GLOBAL')
         "
         """
     )
