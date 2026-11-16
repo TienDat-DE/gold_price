@@ -33,7 +33,7 @@ with DAG(
         bash_command=f"""
         cd {PROJECT_DIR} && PYTHONPATH={PROJECT_DIR} {PYTHON_BIN} -c "
 from src.crawler.sjc_crawler import SJCCrawler
-SJCCrawler(run_id='{{{{ run_id }}}}', logical_date='{{{{ ds }}}}').run(step_name='CRAWL_SJC')
+SJCCrawler(run_id='{{{{ ds_nodash }}}}', logical_date='{{{{ ds }}}}').run(step_name='CRAWL_SJC')
         "
         """
     )
@@ -43,7 +43,7 @@ SJCCrawler(run_id='{{{{ run_id }}}}', logical_date='{{{{ ds }}}}').run(step_name
         bash_command=f"""
         cd {PROJECT_DIR} && PYTHONPATH={PROJECT_DIR} {PYTHON_BIN} -c "
 from src.crawler.btmc_crawler import BTMCCrawler
-BTMCCrawler(run_id='{{{{ run_id }}}}', logical_date='{{{{ ds }}}}').run(step_name='CRAWL_BTMC')
+BTMCCrawler(run_id='{{{{ ds_nodash }}}}', logical_date='{{{{ ds }}}}').run(step_name='CRAWL_BTMC')
         "
         """
     )
@@ -56,7 +56,7 @@ BTMCCrawler(run_id='{{{{ run_id }}}}', logical_date='{{{{ ds }}}}').run(step_nam
         bash_command=f"""
         cd {PROJECT_DIR} && PYTHONPATH={PROJECT_DIR} {PYTHON_BIN} -c "
 from src.staging.sjc_staging import SJCStaging
-SJCStaging(run_id='{{{{ run_id }}}}', logical_date='{{{{ ds }}}}').run(step_name='STAGE_SJC')
+SJCStaging(run_id='{{{{ ds_nodash }}}}', logical_date='{{{{ ds }}}}').run(step_name='STAGE_SJC')
         "
         """
     )
@@ -66,7 +66,7 @@ SJCStaging(run_id='{{{{ run_id }}}}', logical_date='{{{{ ds }}}}').run(step_name
         bash_command=f"""
         cd {PROJECT_DIR} && PYTHONPATH={PROJECT_DIR} {PYTHON_BIN} -c "
 from src.staging.btmc_staging import BTMCStaging
-BTMCStaging(run_id='{{{{ run_id }}}}', logical_date='{{{{ ds }}}}').run(step_name='STAGE_BTMC')
+BTMCStaging(run_id='{{{{ ds_nodash }}}}', logical_date='{{{{ ds }}}}').run(step_name='STAGE_BTMC')
         "
         """
     )
@@ -79,7 +79,7 @@ BTMCStaging(run_id='{{{{ run_id }}}}', logical_date='{{{{ ds }}}}').run(step_nam
         bash_command=f"""
         cd {PROJECT_DIR} && PYTHONPATH={PROJECT_DIR} {PYTHON_BIN} -c "
 from src.clean.gold_cleaner import GoldCleaner
-GoldCleaner(run_id='{{{{ run_id }}}}', logical_date='{{{{ ds }}}}').run(step_name='CLEAN_GOLD')
+GoldCleaner(run_id='{{{{ ds_nodash }}}}', logical_date='{{{{ ds }}}}').run(step_name='CLEAN_GOLD')
         "
         """
     )

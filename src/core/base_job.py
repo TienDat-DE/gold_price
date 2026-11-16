@@ -30,9 +30,9 @@ class BaseJob(ABC):
         về dạng tối giản YYYYMMDD (vd: '20261113').
         Giữ nguyên nếu là ID đặt riêng khi test (vd: 'test_e2e_20261113').
         """
-        if not raw_run_id or raw_run_id.startswith(("manual__", "scheduled__")):
-            return str(logical_date)[:10].replace("-", "")
-        return raw_run_id
+        if raw_run_id and str(raw_run_id).startswith("test_"):
+            return raw_run_id
+        return str(logical_date)[:10].replace("-", "")
         
     def _setup_logger(self):
         logging.basicConfig(

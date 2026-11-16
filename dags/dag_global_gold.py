@@ -33,7 +33,7 @@ with DAG(
         bash_command=f"""
         cd {PROJECT_DIR} && PYTHONPATH={PROJECT_DIR} {PYTHON_BIN} -c "
 from src.crawler.xau_crawler import XAUCrawler
-XAUCrawler(run_id='{{{{ run_id }}}}', logical_date='{{{{ ds }}}}').run(step_name='CRAWL_XAU')
+XAUCrawler(run_id='{{{{ ds_nodash }}}}', logical_date='{{{{ ds }}}}').run(step_name='CRAWL_XAU')
         "
         """
     )
@@ -43,7 +43,7 @@ XAUCrawler(run_id='{{{{ run_id }}}}', logical_date='{{{{ ds }}}}').run(step_name
         bash_command=f"""
         cd {PROJECT_DIR} && PYTHONPATH={PROJECT_DIR} {PYTHON_BIN} -c "
 from src.staging.xau_staging import XAUStaging
-XAUStaging(run_id='{{{{ run_id }}}}', logical_date='{{{{ ds }}}}').run(step_name='STAGE_XAU')
+XAUStaging(run_id='{{{{ ds_nodash }}}}', logical_date='{{{{ ds }}}}').run(step_name='STAGE_XAU')
         "
         """
     )
@@ -56,7 +56,7 @@ XAUStaging(run_id='{{{{ run_id }}}}', logical_date='{{{{ ds }}}}').run(step_name
         bash_command=f"""
         cd {PROJECT_DIR} && PYTHONPATH={PROJECT_DIR} {PYTHON_BIN} -c "
 from src.crawler.vcb_crawler import VCBCrawler
-VCBCrawler(run_id='{{{{ run_id }}}}', logical_date='{{{{ ds }}}}').run(step_name='CRAWL_USD')
+VCBCrawler(run_id='{{{{ ds_nodash }}}}', logical_date='{{{{ ds }}}}').run(step_name='CRAWL_USD')
         "
         """
     )
@@ -66,7 +66,7 @@ VCBCrawler(run_id='{{{{ run_id }}}}', logical_date='{{{{ ds }}}}').run(step_name
         bash_command=f"""
         cd {PROJECT_DIR} && PYTHONPATH={PROJECT_DIR} {PYTHON_BIN} -c "
 from src.staging.vcb_staging import VCBStaging
-VCBStaging(run_id='{{{{ run_id }}}}', logical_date='{{{{ ds }}}}').run(step_name='STAGE_USD')
+VCBStaging(run_id='{{{{ ds_nodash }}}}', logical_date='{{{{ ds }}}}').run(step_name='STAGE_USD')
         "
         """
     )
@@ -79,7 +79,7 @@ VCBStaging(run_id='{{{{ run_id }}}}', logical_date='{{{{ ds }}}}').run(step_name
         bash_command=f"""
         cd {PROJECT_DIR} && PYTHONPATH={PROJECT_DIR} {PYTHON_BIN} -c "
 from src.clean.global_converter import GlobalConverter
-GlobalConverter(run_id='{{{{ run_id }}}}', logical_date='{{{{ ds }}}}').run(step_name='CONVERT_GLOBAL')
+GlobalConverter(run_id='{{{{ ds_nodash }}}}', logical_date='{{{{ ds }}}}').run(step_name='CONVERT_GLOBAL')
         "
         """
     )
