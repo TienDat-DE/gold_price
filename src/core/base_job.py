@@ -15,15 +15,25 @@ class BaseJob(ABC):
         run_id và logical_date sau này sẽ do Airflow tự động truyền vào.
         """
         self._job_name = job_name
-        self._run_id = run_id 
         self._logical_date = logical_date
+        self._run_id = self._normalize_run_id(run_id, logical_date)
         
         # Sub-task 2.1: Khởi tạo Logger và Database Connector
         self.logger = self._setup_logger()
         self._db = self._connect_db()
         self._cursor = self._db.cursor()
         self._ensure_job_run()
-
+    @staticmethod
+    def _normalize_run_id(raw_run_id: str, logical_date: str) -> str:
+        """
+        Chuyển các run_id mặc định của Airflow ('manual__...', 'scheduled__...')
+        về dạng tối giản YYYYMMDD (vd: '20261113').
+        Giữ nguyên nếu là ID đặt riêng khi test (vd: 'test_e2e_20261113').
+        """
+        if not raw_run_id or raw_run_id.startswith(("manual__", "scheduled__")):
+            return str(logical_date)[:10].replace("-", "")
+        return raw_run_id
+        
     def _setup_logger(self):
         logging.basicConfig(
             level=logging.INFO, 
